@@ -95,19 +95,31 @@ void addState( STATUS s )
 	}
 }
 
-vector<STATUS> e_closure( vector<STATUS> T )
+void e_closure( vector<STATUS> T )
 {
-	vector<STATUS> res;
 	for( int i = 0; i < T.size(); i++ )
 	{
-		res.push_back( T[i] );
-		if ( states[T[i]][0].size() != 0 )
+		oldStates.push( T[i] );
+	}	
+	while ( !oldStates.empty() )
+	{
+		STATUS top = oldStates.top();
+		oldStates.pop();
+		vector<STATUS> tmpV = move( top, 'E' );
+		for ( int i = 0; i < tmpV.size(); i++ )
 		{
-			for ( int j = 0; j < states[T[i]][0].size(); j++ )
-				res.push_back( states[T[i]][0][j] );
+			if ( !alreadyOn[ tmpV[i] ] )
+				addState( tmpV[i] );
+			
 		}
 	}
-	return res;
+	while ( !newStates.empty() )
+	{
+		STATUS top = newStates.top();
+		newStates.pop();
+		oldStates.push( top );
+		alreadyOn[ top ] = false;
+	}
 }
 
 void testOutput(int N, int M)
@@ -166,14 +178,14 @@ freopen("input.txt","r",stdin);
 
 			vector<STATUS> s;
 			s.push_back( 0 );
-			vector<STATUS> S = e_closure( s );
+			e_closure( s );
 
 			// 把S里所有状态压进oldStates里
-			for ( int i = 0; i < S.size(); i++ )
+			/*for ( int i = 0; i < S.size(); i++ )
 			{
 				oldStates.push( S[i] );
 				//alreadyOn[ s[i] ] = true;
-			}
+			}*/
 
 			char c = nextChar();
 			while( idx != str.length()+1 )
