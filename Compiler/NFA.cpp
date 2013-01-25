@@ -7,22 +7,29 @@
 #include <stack>
 using namespace std;
 
+// 定义一个状态类型
 typedef int STATUS;
 
 int idx;
 string str;
-vector<STATUS> states[50][27];
-bool target[50];
-// 用来避免重复的数据结构
-stack<STATUS> oldStates;
-stack<STATUS> newStates;
-bool alreadyOn[50];		//用来检查相应的状态是否已经在newStates中
+vector<STATUS> states[50][27];	//状态转换表
+bool target[50];				//目标状态
+// 用于每一步状态转移时避免重复的数据结构
+// 在每接受一个字符c时，当前状态全部放在oldStates中
+// 通过吧c传进函数moveOneAndclosure( char )函数中，来得到新的状态集合
+// 该函数保证了新状态集合没有重复
+// 至于moveOneClosure( char )的工作原理请看该函数的详细解释
+stack<STATUS> oldStates;		//旧一步的所有状态集		
+stack<STATUS> newStates;		//新一步的所有状态集
+bool alreadyOn[50];				//用来检查相应的状态是否已经在newStates中，以避免重复
 
 char nextChar()
 {
 	return str[idx++];
 }
 
+// 由当前状态s，向前移动c
+// 注意，该函数只是返回前一步的状态，而不该状态的空闭包
 vector<STATUS> move( STATUS s, char c )
 {
 	if ( c == 'E' )
@@ -31,21 +38,7 @@ vector<STATUS> move( STATUS s, char c )
 		return states[s][c-'a'+1];
 }
 
-vector<STATUS> move( vector<STATUS> S, char c )
-{
-	vector<STATUS> res;
-	for ( int i = 0; i < S.size(); i++ )
-	{
-		if ( states[S[i]][c-'a'+1].size() != 0 )
-		{
-			for ( int j = 0; j < states[S[i]][c-'a'+1].size(); j++ )
-				res.push_back( states[S[i]][c-'a'+1][j] );
-		}
-	}
-
-	return res;
-}
-
+// 查看是否到达目标状态
 bool isInTarget( stack<STATUS> st )
 {
 	bool ok = false;
@@ -62,6 +55,7 @@ bool isInTarget( stack<STATUS> st )
 	return ok;
 }
 
+// 解析字符串{1,2}，并转化成vector
 void stringToVector( string str, vector<STATUS> &v )
 {
 	str = str.substr(1, str.length()-2);
@@ -81,8 +75,9 @@ void stringToVector( string str, vector<STATUS> &v )
 	}
 }
 
-
-
+// 把s添加到newStates里
+// 并把s的空闭包也添加到newStates里
+// 使用了递归实现
 void addState( STATUS s )
 {
 	newStates.push( s );
@@ -95,45 +90,36 @@ void addState( STATUS s )
 	}
 }
 
-void e_closure( vector<STATUS> T )
+// 本程序的核心函数
+// 该函数有两个功能：
+// 1.当输入的c是'E'时，该函数会根据当前oldStates里的状态集合，找到该状态集合的空闭包
+// 2.当输入的c不是'E'时，该函数会根据当前oldStates里的状态集合，使用c转移到下一状态的状态集合及其空闭包
+// 最后，该函数把找到的状态集合先用newStates缓存，最后清空newStates，并把这些状态集合放在压进oldStates，为下一次转移做好准备
+void moveOneStepAndClosure( char c )
 {
-	for( int i = 0; i < T.size(); i++ )
-	{
-		oldStates.push( T[i] );
-	}	
 	while ( !oldStates.empty() )
 	{
 		STATUS top = oldStates.top();
 		oldStates.pop();
-		vector<STATUS> tmpV = move( top, 'E' );
+		//如果c==‘E’求的是空闭包，要包含该状态本身
+		if ( c == 'E' )
+			addState( top );
+		//包含下一步
+		//实质上，当c==E时可以完全不执行这一步
+		vector<STATUS> tmpV = move( top, c );
 		for ( int i = 0; i < tmpV.size(); i++ )
 		{
 			if ( !alreadyOn[ tmpV[i] ] )
-				addState( tmpV[i] );
-			
+				addState( tmpV[i] );		
 		}
 	}
+	//把newStates的状态集合转移到oldStates中
 	while ( !newStates.empty() )
 	{
 		STATUS top = newStates.top();
 		newStates.pop();
 		oldStates.push( top );
 		alreadyOn[ top ] = false;
-	}
-}
-
-void testOutput(int N, int M)
-{
-	for ( int i = 0; i < N; i++ )
-	{
-		for ( int j = 0; j < M; j++ )
-		{
-			cout << "{ ";
-			for ( int k = 0; k < states[i][j].size(); k++ )
-				cout << states[i][j][k] << " ";
-			cout << " }";
-		}
-		cout << endl;
 	}
 }
 
@@ -156,7 +142,7 @@ freopen("input.txt","r",stdin);
 				states[i][j].clear();
 		}
 		
-
+		// 读取转化表
 		for ( int i = 0; i < N; i++ )
 		{	
 			for ( int j = 0; j < M; j++ )
@@ -176,43 +162,16 @@ freopen("input.txt","r",stdin);
 		{
 			idx = 0;
 
-			vector<STATUS> s;
-			s.push_back( 0 );
-			e_closure( s );
-
-			// 把S里所有状态压进oldStates里
-			/*for ( int i = 0; i < S.size(); i++ )
-			{
-				oldStates.push( S[i] );
-				//alreadyOn[ s[i] ] = true;
-			}*/
+			// 把开始状态压进oldStates中，开始搜索
+			oldStates.push( 0 );
+			moveOneStepAndClosure( 'E' );
 
 			char c = nextChar();
 			while( idx != str.length()+1 )
 			{
 				// 实现：S = e_closure( move( S, c ) );
-				// oldStates与newStates之间的转换
-				while ( !oldStates.empty() )
-				{
-					STATUS top = oldStates.top();
-					oldStates.pop();
-
-					vector<STATUS> tmpV = move(top, c);
-					for ( int i = 0; i < tmpV.size(); i++ )
-					{
-						if ( !alreadyOn[ tmpV[i] ] )
-							addState( tmpV[i] );
-					}
-				}
-				while ( !newStates.empty() )
-				{
-					STATUS top = newStates.top();
-					newStates.pop();
-					oldStates.push( top );
-					alreadyOn[top] = false;
-				}
-				// 实现完毕
-
+				moveOneStepAndClosure( c );
+				
 				c = nextChar();
 			}
 
